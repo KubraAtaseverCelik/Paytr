@@ -1,0 +1,94 @@
+public async Task<PaymentReturn> PayTrPost(PaymentModel postModel)
+        {
+            using (Client)
+            {
+                try
+                {
+                    var nvc = new List<KeyValuePair<string, string>>
+                    {
+                        new KeyValuePair<string, string>("cc_owner", postModel.cc_owner),
+                        new KeyValuePair<string, string>("card_number", postModel.card_number),
+                        new KeyValuePair<string, string>("expiry_month", postModel.expiry_month),
+                        new KeyValuePair<string, string>("expiry_year", postModel.expiry_year),
+                        new KeyValuePair<string, string>("cvv", postModel.cvv),
+                        new KeyValuePair<string, string>("merchant_id", postModel.merchant_id),
+                        new KeyValuePair<string, string>("user_ip", postModel.user_ip),
+                        new KeyValuePair<string, string>("merchant_oid", postModel.merchant_oid),
+                        new KeyValuePair<string, string>("email", postModel.email),
+                        new KeyValuePair<string, string>("payment_type", postModel.payment_type),
+                        new KeyValuePair<string, string>("payment_amount", postModel.payment_amount),
+                        new KeyValuePair<string, string>("currency", postModel.currency),
+                        new KeyValuePair<string, string>("test_mode", postModel.test_mode),
+                        new KeyValuePair<string, string>("non_3d", postModel.non_3d),
+                        new KeyValuePair<string, string>("merchant_ok_url", postModel.merchant_ok_url),
+                        new KeyValuePair<string, string>("merchant_fail_url", postModel.merchant_fail_url),
+                        new KeyValuePair<string, string>("user_name", postModel.user_name),
+                        new KeyValuePair<string, string>("user_address", postModel.user_address),
+                        new KeyValuePair<string, string>("user_phone", postModel.user_phone),
+                        new KeyValuePair<string, string>("user_basket", postModel.user_basket.ToString()),
+                        new KeyValuePair<string, string>("debug_on", postModel.debug_on),
+                        new KeyValuePair<string, string>("paytr_token", postModel.paytr_token),
+                        new KeyValuePair<string, string>("non3d_test_failed", postModel.non3d_test_failed),
+                        new KeyValuePair<string, string>("installment_count", postModel.installment_count),
+                        new KeyValuePair<string, string>("card_type", postModel.card_type),
+                        new KeyValuePair<string, string>("no_installment", postModel.no_installment),
+                        new KeyValuePair<string, string>("max_installment", postModel.max_installment),
+                        new KeyValuePair<string, string>("lang", postModel.lang),
+                        //new KeyValuePair<string, string>("merchant_key", postModel.merchant_key),
+                        //new KeyValuePair<string, string>("merchant_salt", postModel.merchant_salt),
+                        //new KeyValuePair<string, string>("request_exp_date", postModel.request_exp_date),
+                        //new KeyValuePair<string, string>("timeout_limit", 30.ToString()),
+                    };
+                    var req = new HttpRequestMessage(HttpMethod.Post, "https://www.paytr.com/odeme") { Content = new FormUrlEncodedContent(nvc) };
+                    var res = await Client.SendAsync(req);
+                    if (res.IsSuccessStatusCode)
+                    {
+                        //await DialogService.AlertAsync("Proof Sent Successfully!");
+                        var str = await res.Content.ReadAsStringAsync();
+                        if (str.Contains("doctype"))
+                        {
+                            string[] array = { "<body>" };
+                            var response = str.Split(array, StringSplitOptions.RemoveEmptyEntries)[1].Split('}')[0] + "}";
+                            return JsonConvert.DeserializeObject<PaymentReturn>(response);
+                        }
+                    }
+                    else
+                    {
+                        //await DialogService.AlertAsync("Unsuccessfull!");
+                    }
+
+                    try
+                    {
+                        var c = await res.Content.ReadAsStringAsync();
+                        if (c.Contains("token"))
+                        {
+                            var token = JsonConvert.DeserializeObject<PaymentReturnToken>(c);
+                            return new PaymentReturn()
+                            {
+                                reason = token.token,
+                                status = token.status
+                            };
+
+                        }
+                        return JsonConvert.DeserializeObject<PaymentReturn>(c);
+                    }
+                    catch (Exception ex)
+                    {
+                        var str = await res.Content.ReadAsStringAsync();
+                        return new PaymentReturn()
+                        {
+                            reason = str,
+                            status = "Uyarı"
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return new PaymentReturn()
+                    {
+                        reason = ex.Message,
+                        status = "Uyarı"
+                    };
+                }
+            }
+        }
