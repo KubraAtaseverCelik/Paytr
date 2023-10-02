@@ -1,0 +1,74 @@
+private async void SendPaymentClicked(object obj)
+        {
+            var ip = "";          
+            using (WebClient client = new WebClient())
+            {
+                try
+                {
+                    ip = client.DownloadString("http://wtfismyip.com/text");
+                }
+                catch (WebException e)
+                {
+                }
+            };
+            object[][] user_basket ={
+                            new object[] {"Örnek ürün 1", "1.00", 1}, // 1. ürün (Ürün Ad - Birim Fiyat - Adet)
+                            new object[] {"Örnek ürün 2", "1.00", 2}, // 2. ürün (Ürün Ad - Birim Fiyat - Adet)
+                            new object[] {"Örnek ürün 3", "1.00", 1}, // 3. ürün (Ürün Ad - Birim Fiyat - Adet)
+                            };
+            var user_basket_json = JsonConvert.SerializeObject(user_basket);
+            string merchant_oid = Guid.NewGuid().ToString().Replace("-", "").ToString();
+
+            var paymentModel = new PaymentModel()
+            {
+                cc_owner = "PAYTR TEST",
+                card_number = "9792030394440796",
+                expiry_month = "12",
+                expiry_year = "30",
+                cvv = "000",
+                merchant_id = "380285",
+                user_ip = ip.Trim('\n'),
+                merchant_oid = merchant_oid,
+                email = App.GirisYapanKullanici.Email,
+                payment_type = "card",
+                payment_amount = "10",
+                currency = "TL",
+                test_mode = "1",
+                non_3d = "1",
+                merchant_ok_url = $"https://api.tabiatana.com/api/Payment/OrderCreditCardPostOK/?MemberId={App.GirisYapanKullanici.MemberId}&DELIVERY_ADDRESS_ID=10090&BILLING_ADDRESS_ID=10061&TeslimatIleAyni=False&merchant_oid={merchant_oid}",
+                merchant_fail_url = "http://m.tabiatana.com/PosOdemeSonuc/ERROR",
+                user_name = App.GirisYapanKullanici.Name + " " + App.GirisYapanKullanici.SurName,
+                user_address = "Adres",
+                user_phone = App.GirisYapanKullanici.PhoneNumber,
+                user_basket = user_basket_json,
+                debug_on = "1",
+                non3d_test_failed = "1",
+                installment_count = "0",
+                card_type = "bonus",
+                no_installment = "1",
+                max_installment = "0",
+                lang = "tr",
+                merchant_key = "szb6nPs6yuKXUxYx",
+                merchant_salt = "L4FzPCuxkHiETByf",
+                request_exp_date = "0"
+            };
+
+            string Birlestir = string.Concat(paymentModel.merchant_id, paymentModel.user_ip, paymentModel.merchant_oid, paymentModel.email, paymentModel.payment_amount, paymentModel.payment_type, paymentModel.installment_count, paymentModel.currency, paymentModel.test_mode, paymentModel.non_3d, paymentModel.merchant_salt);
+            HMACSHA256 hmac = new HMACSHA256(Encoding.UTF8.GetBytes(paymentModel.merchant_key));
+            byte[] b = hmac.ComputeHash(Encoding.UTF8.GetBytes(Birlestir));
+            paymentModel.paytr_token = Convert.ToBase64String(b);
+
+            var response = await methods.SendPayment(paymentModel);
+            if (response != null)
+            {
+                MessagingCenter.Send<App, PaymentReturn>((App)Application.Current, "ShowPaymentInfo", response);
+            }
+            else
+            {
+                MessagingCenter.Send<App, PaymentReturn>((App)Application.Current, "ShowPaymentInfo", new PaymentReturn()
+                {
+                    status = "Uyarı",
+                    reason = "Servise ulaşılamadı."
+                });
+            }
+        }
